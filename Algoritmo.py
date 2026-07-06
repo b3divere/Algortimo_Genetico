@@ -48,19 +48,15 @@ def es_transitable(posicion_tentativa, tamaño, fila_laberinto):
     
 
 def es_valida():
-    
+    pass
 
 def llegada_efectiva():
     pass
+
     
 
 
-def avanzar(laberinto, posicion_actual, direccion_actual):
-    posicion = posicion_actual
-    direccion = direccion_actual
-    
-    for filas in laberinto:
-        
+
     
 DIRECCIONES = ("N", "E", "S", "O")
 
@@ -124,7 +120,6 @@ def ejecutar_individuo(
         elif movimiento == "A": 
             indice = antihorario.index(direccion)
             nuevo_indice = (indice + 1) % len(antihorario)
-            direccion_anterior = direccion
             direccion = antihorario[nuevo_indice]
             contador_giros +=1
             
@@ -132,7 +127,6 @@ def ejecutar_individuo(
         elif movimiento == "H":
             indice = horario.index(direccion)
             nuevo_indice = (indice + 1) % len(horario)
-            direccion_anterior = direccion
             direccion = horario[nuevo_indice]
             contador_giros +=1
 
@@ -162,4 +156,4 @@ def inicio(laberinto, poblacion, movimiento, direccion_inicial):
                 
             
     
-cromosoma(4)
+
