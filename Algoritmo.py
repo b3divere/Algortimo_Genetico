@@ -4,29 +4,56 @@ from functools import partial
 from time import time
 import csv
 
-laberinto = []
 
+# ---------------------------------------------------------------------------        
+# CONSTANTES
+# --------------------------------------------------------------------------- 
+DIRECCIONES = ("N", "E", "S", "O")
+A = ["H", "A", "M", "Q"]
+VECTORES = {
+    "N": (-1, 0),
+    "E": (0, 1),
+    "S": (1, 0),
+    "O": (0, -1)
+}
+
+Pos = Tuple[int, int]
+
+# ---------------------------------------------------------------------------
+# Lectura y Paramatros del laberinto
+# ---------------------------------------------------------------------------
+
+laberinto = []
 with open("laberinto_valido.csv", "r", encoding="utf-8") as archivo:
     lector = csv.reader(archivo, delimiter=",")
 
     for fila in lector:
         laberinto.append(fila)
 
+# ---------------------------------------------------------------------------
+# 2. Representación del individuo y ejecución del cromosoma
+# ---------------------------------------------------------------------------
+
 def cromosoma(longitud):
     # H gira 90◦ en sentido horario
     #A gira 90◦ en sentido antihorario
     # M avanza un cuadro en la dirección hacia la cual está mirando
     # Q permanece quieto y conserva posición y dirección
-
-    A = ["H", "A", "M", "Q"]
     return  choices(A, k=longitud)
 
-def poblacion(tamaño, cromosoma):
-    if tamaño % 2 != 0:
-        print("el tamaño de la población debe ser impar")
+def poblacion(N, n):
+    if N % 2 == 0 or  N < 3:
+        print("El tamaño de la poblacion debe ser impar y >= 3")
     else:
-        return [cromosoma(tamaño) for _ in range(tamaño)]
+        return [cromosoma(n) for _ in range(N)]
         
+def es_transitable(posicion_tentativa, tamaño, fila_laberinto):
+    result = None
+    if posicion_tentativa <= tamaño and fila_laberinto[posicion_tentativa] != "x":
+        result = True
+    else:
+        result = False
+    return result
 
 
 def penalizacion_pausa(contador_pausas):
@@ -38,13 +65,7 @@ def penalizacion_choques(contador_choques):
     contador_choques =+ 30
     return contador_choques
     
-def es_transitable(posicion_tentativa, tamaño, fila_laberinto):
-    result = None
-    if posicion_tentativa <= tamaño and fila_laberinto[posicion_tentativa] != "x":
-        result = True
-    else:
-        result = False
-    return result
+
     
 
 def es_valida():
@@ -52,20 +73,6 @@ def es_valida():
 
 def llegada_efectiva():
     pass
-
-    
-
-
-
-    
-DIRECCIONES = ("N", "E", "S", "O")
-
-VECTORES = {
-    "N": (-1, 0),
-    "E": (0, 1),
-    "S": (1, 0),
-    "O": (0, -1)
-}
 
 
 # la direccion tiene que ser una tupla que supe la posicion actual con cualquiera de los vectores
