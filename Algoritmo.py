@@ -116,6 +116,49 @@ def es_transitable(posicion_tentativa, tamaño, fila_laberinto):
         result = False
     return result
 
+def fitness(individuo, datos_simulacion, pos_meta):
+    n = len(individuo)
+
+    pos_final = datos_simulacion["posicion_final"]
+    distancia_D = abs(pos_final[0] - pos_meta[0]) + abs(pos_final[1] - pos_meta[1])
+
+    es_valido = False
+    tiempo_llegada = n + 1
+    
+    if datos_simulacion["pasos_en_meta"]:
+        primer_paso_meta = datos_simulacion["pasos_en_meta"][0]
+        tiempo_llegada = primer_paso_meta
+        
+        genes_despues_de_llegar = individuo[primer_paso_meta:]
+        if all(gen == "Q" for gen in genes_despues_de_llegar):
+            es_valido = True
+
+    # --------------------------------------------------
+    # Penalizaciones
+    # --------------------------------------------------
+    # Castogo por choques
+    PC = 30 * datos_simulacion["choques"]
+    
+    # Castigo por acciones en meta
+    PA = 100 * datos_simulacion["acciones_en_meta"]
+    
+    # Camino invalido
+    P_inv = 0 if es_valido else 10000
+    
+    # --------------------------------------------------
+    # Calculo de J y Fitness
+    # --------------------------------------------------
+    J = distancia_D + tiempo_llegada + PC + PA + P_inv
+    
+    fitness = -J
+    
+    return {
+        "fitness": fitness,
+        "J": J,
+        "valido": es_valido,
+        "distancia_manhattan": distancia_D,
+        "tiempo_llegada": tiempo_llegada
+    }
 
 # la direccion tiene que ser una tupla que supe la posicion actual con cualquiera de los vectores
 # individuo = tipo : ["M", "H", "M", "Q"]
