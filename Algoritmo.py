@@ -334,8 +334,20 @@ def aplicar_elitismo(mejor_global, descendientes):
 # =============================================================================
 
 def cruzamiento_un_punto(padre_x, padre_y):
-    # Debe elegir un punto de corte c y generar dos descendientes combinando ambos padres.
-    pass
+    n = len(padre_x)
+
+    if len(padre_y) != n:
+        raise ValueError("Los padres deben tener la misma longitud.")
+
+    if n < 2:
+        raise ValueError("La longitud del cromosoma debe ser al menos 2 para aplicar cruzamiento.")
+
+    punto_corte = randint(1, n - 1)
+
+    descendiente_1 = padre_x[:punto_corte] + padre_y[punto_corte:]
+    descendiente_2 = padre_y[:punto_corte] + padre_x[punto_corte:]
+
+    return descendiente_1, descendiente_2
 
 def mutar_gen(gen_actual):
     # Tomo todas las acciones posibles: H, A, M, Q
