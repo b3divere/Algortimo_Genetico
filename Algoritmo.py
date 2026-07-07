@@ -1,4 +1,4 @@
-from random import choices, randint, random, randrange
+from random import choices,choice, randint, random, randrange
 from typing import Callable, List, NamedTuple, Tuple
 from functools import partial
 from time import time
@@ -337,15 +337,31 @@ def cruzamiento_un_punto(padre_x, padre_y):
     # Debe elegir un punto de corte c y generar dos descendientes combinando ambos padres.
     pass
 
-
 def mutar_gen(gen_actual):
-    # Debe reemplazar el gen actual por una acción distinta tomada de A \ {gen_actual}.
-    pass
+    # Tomo todas las acciones posibles: H, A, M, Q
+    # Le quito la acción actual, para no repetirla
+    # Elijo una al azar entre las que quedan
+    opciones = []
+    for accion in A:
+        if accion != gen_actual:
+            opciones.append(accion)
 
+    return choice(opciones)
 
 def mutacion_por_gen(descendiente, pm):
-    # Debe mutar cada gen del descendiente con probabilidad pm usando mutar_gen().
-    pass
+    # Copio el cromosoma para no modificar el original
+    nuevo = list(descendiente)
+
+    # Recorro cada gen, uno por uno
+    for i in range(len(nuevo)):
+        # Tiro un número al azar entre 0 y 1
+        numero_al_azar = random()
+
+        # Si el número es menor que pm, ese gen muta
+        if numero_al_azar < pm:
+            nuevo[i] = mutar_gen(nuevo[i])
+
+    return nuevo
 
 
 def reevaluar_descendiente(descendiente, laberinto, posicion_inicial, direccion_inicial):
