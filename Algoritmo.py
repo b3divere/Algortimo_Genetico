@@ -29,7 +29,7 @@ Pos = Tuple[int, int]
 # ps -> parámetro de presión selectiva (ranking geométrico)
 # seed -> semilla aleatoria para reproducibilidad
 
-def leer_parametros():
+def leer_parametros(ruta_csav, n, pm, N, G, ps, seed):
     # Debe leer externamente ruta del CSV, n, pm, N, G, ps y seed (sin hardcodear).
     pass
 
@@ -72,10 +72,9 @@ def cromosoma(longitud):
 
 def poblacion(N, n):
     if N % 2 == 0 or N < 3:
-        print("El tamaño de la poblacion debe ser impar y >= 3")
-    else:
-        return [cromosoma(n) for _ in range(N)]
-
+        raise ValueError("El tamaño de la poblacion debe ser impar y >= 3")
+    
+    return [cromosoma(n) for _ in range(N)]
 
 def es_transitable(laberinto, pos):
     # OJO: posicion_tentativa es una tupla (fila, columna); compararla con "<=" contra
@@ -318,6 +317,8 @@ def seleccionar_padre(poblacion_ordenada, distribucion_acumulada_ci):
     for i in range(len(distribucion_acumulada_ci)):
         if u <= distribucion_acumulada_ci[i]:
             return poblacion_ordenada[i]
+    
+    return poblacion_ordenada[-1]
 
 def aplicar_elitismo(mejor_global, descendientes):
     # Debe construir P_{t+1} = {x*_t} ∪ Ot, conservando el mejor global.
