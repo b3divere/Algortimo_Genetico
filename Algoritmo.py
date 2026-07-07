@@ -4,7 +4,6 @@ from functools import partial
 from time import time
 import csv
 
-
 # ---------------------------------------------------------------------------
 # CONSTANTES
 # ---------------------------------------------------------------------------
@@ -19,7 +18,6 @@ VECTORES = {
 
 Pos = Tuple[int, int]
 
-
 # =============================================================================
 # PARÁMETROS DEL ALGORITMO
 # =============================================================================
@@ -33,7 +31,6 @@ Pos = Tuple[int, int]
 def leer_parametros():
     # Debe leer externamente ruta del CSV, n, pm, N, G, ps y seed (sin hardcodear).
     pass
-
 
 # =============================================================================
 # ETAPA 1: LECTURA, PARÁMETROS Y VALIDACIÓN DEL LABERINTO (5%)
@@ -53,7 +50,6 @@ def cargar_laberinto_csv(ruta_csv):
             laberinto.append(fila)
 
     return laberinto
-
 
 def validar_simbolos(laberinto):
     # Debe validar que cada celda contenga solo "0", "1", "2" o "X".
@@ -97,13 +93,11 @@ def cromosoma(longitud):
 
     return choices(A, k=longitud)
 
-
 def poblacion(N, n):
     if N % 2 == 0 or N < 3:
         print("El tamaño de la poblacion debe ser impar y >= 3")
     else:
         return [cromosoma(n) for _ in range(N)]
-
 
 def es_transitable(posicion_tentativa, tamaño, fila_laberinto):
     # OJO: posicion_tentativa es una tupla (fila, columna); compararla con "<=" contra
@@ -232,15 +226,9 @@ def ejecutar_individuo(
 
     return direccion, posicion, contador_choques
 
-
 # =============================================================================
 # ETAPA 3: FUNCIÓN OBJETIVO, VALIDEZ Y PENALIDADES (15%)
 # =============================================================================
-
-def distancia_manhattan(posicion_final, posicion_llegada):
-    # Debe calcular D(x) = |in - iz| + |jn - jz|.
-    pass
-
 
 def llegada_efectiva(trayectoria, posicion_llegada):
     # Debe construir Tz(x): pasos en que el individuo entra a la meta desde otra celda.
@@ -283,73 +271,63 @@ def f_bloque(b):
     # Debe calcular f(b): 0 si b<=1, 10 si b=2, 30 si b=3, 120*(b-3) si b>=4.
     pass
 
-
-def penalizacion_bloques_giros(lista_bloques_giros):
-    # Debe calcular PR(x) = suma de f(b) para cada bloque de giros detectado.
-    pass
-
-
-def penalizacion_post_meta(acciones_activas_post_meta):
-    # Debe calcular PA(x) = 100 * Ameta(x), acciones H/A/M ejecutadas ya en la meta.
-    pass
-
-
-def penalizacion_detencion_prematura(individuo, es_valida, tau_valor):
-    # Debe calcular Pprem(x) = 10 * Qprem(x), cola final de Q cuando la solución es inválida.
-    pass
-
-
-def penalizacion_invalidez(es_valida):
-    # Debe calcular Pinv(x) = 10000 si el cromosoma no es solución válida, si no 0.
-    pass
-
-
-def funcion_objetivo(distancia, tau_valor, pq, pc, pr, pa, pprem, pinv):
-    # Debe calcular J(x) = D(x) + τ(x) + PQ(x) + PC(x) + PR(x) + PA(x) + Pprem(x) + Pinv(x).
-    pass
-
-
-def fitness(j_valor):
-    # Debe calcular ϕ(x) = -J(x).
-    pass
-
-
 # =============================================================================
 # ETAPA 4: SELECCIÓN POR RANKING GEOMÉTRICO Y ELITISMO (8%)
 # =============================================================================
 
 def rho(individuo_es_valido, llego_alguna_vez):
     # Debe calcular ρ(x): 0 si válido, 1 si llegó pero no válido, 2 si nunca llegó.
-    pass
-
+    if individuo_es_valido:
+        return 0
+    elif llego_alguna_vez:
+        return 1
+    else:
+        return 2
 
 def ordenar_poblacion(poblacion_evaluada):
     # Debe ordenar la población lexicográficamente por (ρ(x), J(x), D(x), τ(x)).
-    pass
-
+    poblacion_evaluada.sort(key=lambda ind: (ind["rho"], ind["J"], ind["distancia"], ind["tau"]))
+    return poblacion_evaluada
 
 def probabilidades_normalizadas(N, ps):
     # Debe calcular, en un solo paso, los pesos no normalizados wi = ps*(1-ps)^(i-1)
     # y luego normalizarlos: Pi = wi / (1-(1-ps)^N) para cada posición i=1..N.
     # (Se fusiona aquí lo que antes era pesos_ranking_geometrico(): wi nunca se usa
     # ni se reporta por separado, es solo un paso intermedio hacia Pi).
-    pass
-
+    probabilidades = []
+    
+    denominador = 1 - 1(1 - ps)**N
+    
+    for i in range(1, N +1):
+        pi = (ps * (1 - ps)**(i - 1)) / denominador
+        probabilidades.append(pi)
 
 def distribucion_acumulada(probabilidades):
     # Debe calcular Ci = suma acumulada de P1..Pi.
-    pass
-
+    ci = []
+    suma_actual = 0
+    
+    for p in probabilidades:
+        suma_actual += p
+        ci.append(suma_actual)
+    return ci
 
 def seleccionar_padre(poblacion_ordenada, distribucion_acumulada_ci):
     # Debe generar u~U(0,1) y elegir el primer cromosoma con u <= Ci.
-    pass
-
+    u = random.random()
+    
+    for i in range(len(distribucion_acumulada_ci)):
+        if u <= distribucion_acumulada_ci[i]:
+            return poblacion_ordenada[i]
 
 def aplicar_elitismo(mejor_global, descendientes):
     # Debe construir P_{t+1} = {x*_t} ∪ Ot, conservando el mejor global.
-    pass
-
+    nueva_poblacion = [mejor_global["cromosoma"]]
+    
+    for hijo in descendientes:
+        nueva_poblacion.append(hijo)
+        
+    return nueva_poblacion
 
 # =============================================================================
 # ETAPA 5: CRUZAMIENTO, MUTACIÓN POR GEN Y REEVALUACIÓN (12%)
