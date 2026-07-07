@@ -30,9 +30,40 @@ Pos = Tuple[int, int]
 # ps -> parámetro de presión selectiva (ranking geométrico)
 # seed -> semilla aleatoria para reproducibilidad
 
-def leer_parametros(ruta_csv, n, pm, N, G, ps, seed):
-    # Debe leer externamente ruta del CSV, n, pm, N, G, ps y seed (sin hardcodear).
-    pass
+def leer_parametros():
+    # Lee externamente ruta del CSV, n, pm, N, G, ps y seed usando argparse.
+    # Los valores quedan definidos aca (como default), no repartidos ni
+    # fijados rigidamente en la logica principal (__main__). Si se pasan
+    # por linea de comandos, estos defaults se sobrescriben.
+    parser = argparse.ArgumentParser(
+        description="Algoritmo genetico para la resolucion de laberintos (INFO-1159)"
+    )
+    parser.add_argument("--csv", type=str, default="laberinto_valido.csv",
+                         help="Ruta del archivo CSV del laberinto")
+    parser.add_argument("--n", type=int, default=15,
+                         help="Longitud del cromosoma")
+    parser.add_argument("--pm", type=float, default=0.15,
+                         help="Probabilidad de mutacion por gen")
+    parser.add_argument("--N", type=int, default=21,
+                         help="Numero de cromosomas por generacion (debe ser impar)")
+    parser.add_argument("--G", type=int, default=300,
+                         help="Numero total de generaciones")
+    parser.add_argument("--ps", type=float, default=0.3,
+                         help="Presion selectiva (ranking geometrico)")
+    parser.add_argument("--seed", type=int, default=7,
+                         help="Semilla aleatoria para reproducibilidad")
+
+    argumentos = parser.parse_args()
+
+    return (
+        argumentos.csv,
+        argumentos.n,
+        argumentos.pm,
+        argumentos.N,
+        argumentos.G,
+        argumentos.ps,
+        argumentos.seed,
+    )
 
 # =============================================================================
 # ETAPA 1: LECTURA, PARÁMETROS Y VALIDACIÓN DEL LABERINTO (5%)
@@ -505,9 +536,6 @@ def reevaluar_descendiente(descendiente, laberinto, posicion_inicial, direccion_
 # =============================================================================
 
 def graficar_mejor_objetivo_log(historial_mejor_j_por_generacion):
-    # historial_mejor_j_por_generacion: lista con el mejor J(x) global conocido
-    # hasta cada generación (un valor por generación, ya monótono no creciente
-    # gracias al elitismo).
     generaciones = list(range(1, len(historial_mejor_j_por_generacion) + 1))
 
     plt.figure()
@@ -517,7 +545,9 @@ def graficar_mejor_objetivo_log(historial_mejor_j_por_generacion):
     plt.ylabel("Mejor J(x) global (escala log)")
     plt.title("Evolución del mejor valor de función objetivo")
     plt.grid(True, which="both", linestyle="--", alpha=0.5)
-    plt.show()
+    # No se llama a plt.show() aca: se muestran todas las figuras juntas
+    # al final, en algoritmo_genetico(), para que ambas queden visibles
+    # al mismo tiempo en vez de bloquear una ventana a la vez.
 
 
 def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada):
@@ -527,9 +557,6 @@ def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada):
 
     j_estrella = min(ind["J"] for ind in poblacion_historica_evaluada)
 
-    # Nos quedamos solo con los individuos que empatan en J*, y usamos un dict
-    # (indexado por el cromosoma como tupla) para eliminar duplicados: si el mismo
-    # cromosoma aparece varias veces, solo queda una entrada.
     candidatos = [ind for ind in poblacion_historica_evaluada if ind["J"] == j_estrella]
     unicos = {tuple(ind["cromosoma"]): ind for ind in candidatos}
 
@@ -543,19 +570,14 @@ def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada):
 
 
 def trayectoria_auditada(cromosoma_x, laberinto, posicion_inicial, direccion_inicial):
-    # Reutiliza ejecutar_individuo() para obtener la trayectoria; posicion_llegada=None
-    # porque aqui solo interesan las posiciones recorridas, no las penalidades de meta.
     datos = ejecutar_individuo(cromosoma_x, laberinto, posicion_inicial, direccion_inicial, None)
     trayectoria = datos["trayectoria"]
 
-    # trayectoria[0] es la posicion inicial, antes de ejecutar cualquier gen.
     fila_inicial, columna_inicial = trayectoria[0]
     print(f"paso 0: inicio en (X={columna_inicial}, Y={fila_inicial})")
 
     reporte = [(0, None, columna_inicial, fila_inicial)]
 
-    # cromosoma_x[k] es el gen que produjo trayectoria[k + 1], por eso emparejamos
-    # los genes con la trayectoria "corrida" un paso (trayectoria[1:]).
     for paso, (gen, (fila, columna)) in enumerate(zip(cromosoma_x, trayectoria[1:]), start=1):
         print(f"paso {paso}: gen={gen} -> (X={columna}, Y={fila})")
         reporte.append((paso, gen, columna, fila))
@@ -564,8 +586,6 @@ def trayectoria_auditada(cromosoma_x, laberinto, posicion_inicial, direccion_ini
 
 
 def graficar_proporcion_validas(historial_proporcion_validas_por_generacion):
-    # historial_proporcion_validas_por_generacion: lista con la fracción
-    # (entre 0 y 1) de cromosomas válidos en cada generación.
     generaciones = list(range(1, len(historial_proporcion_validas_por_generacion) + 1))
 
     plt.figure()
@@ -575,7 +595,8 @@ def graficar_proporcion_validas(historial_proporcion_validas_por_generacion):
     plt.ylabel("Proporción de soluciones válidas")
     plt.title("Proporción de soluciones válidas por generación")
     plt.grid(True, linestyle="--", alpha=0.5)
-    plt.show()
+    # Idem: no se llama a plt.show() aca; se muestran ambas figuras juntas
+    # al final del algoritmo.
 
 
 # =============================================================================
@@ -608,7 +629,6 @@ def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed):
                 )
 
             evaluados_generacion.append(evaluados_totales[clave])
-        # <- fin del "for individuo"; todo lo de abajo pasa una vez por generación
 
         evaluados_generacion = ordenar_poblacion(evaluados_generacion)
         mejor_de_la_generacion = evaluados_generacion[0]
@@ -642,7 +662,6 @@ def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed):
 
         poblacion_actual = aplicar_elitismo(mejor_global, descendientes)
         assert len(poblacion_actual) == N, "La población debe mantenerse en tamaño N cada generación."
-    # <- fin del "for generacion"; todo lo de abajo pasa una sola vez, al terminar TODAS las generaciones
 
     print(f"\nMejor cromosoma global: {mejor_global['cromosoma']}")
     print(f"J={mejor_global['J']}  válido={mejor_global['valido']}  "
@@ -656,6 +675,10 @@ def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed):
 
     graficar_mejor_objetivo_log(historial_mejor_j)
     graficar_proporcion_validas(historial_prop_validas)
+    # Un solo plt.show() al final: como ambas figuras ya fueron creadas
+    # (plt.figure() en cada funcion), esto las muestra a las dos juntas
+    # en vez de bloquear la ejecucion mostrando una a la vez.
+    plt.show()
 
     return {
         "mejor_global": mejor_global,
@@ -666,12 +689,5 @@ def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed):
 
 
 if __name__ == "__main__":
-    algoritmo_genetico(
-        ruta_csv="laberinto_valido.csv",
-        n=15,      # TODO: definir según parámetros de la actividad
-        pm=0.15,
-        N=21,
-        G=300,
-        ps=0.3,
-        seed=7
-    )
+    ruta_csv, n, pm, N, G, ps, seed = leer_parametros()
+    algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed)
