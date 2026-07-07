@@ -3,6 +3,7 @@ from typing import Callable, List, NamedTuple, Tuple
 from functools import partial
 from time import time
 import csv
+import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------------
 # CONSTANTES
@@ -415,25 +416,77 @@ def reevaluar_descendiente(descendiente, laberinto, posicion_inicial, direccion_
 # =============================================================================
 
 def graficar_mejor_objetivo_log(historial_mejor_j_por_generacion):
-    # Debe graficar el mejor J(x) global por generación en escala logarítmica.
-    pass
+    # historial_mejor_j_por_generacion: lista con el mejor J(x) global conocido
+    # hasta cada generación (un valor por generación, ya monótono no creciente
+    # gracias al elitismo).
+    generaciones = list(range(1, len(historial_mejor_j_por_generacion) + 1))
+
+    plt.figure()
+    plt.plot(generaciones, historial_mejor_j_por_generacion, marker="o")
+    plt.yscale("log")
+    plt.xlabel("Generación")
+    plt.ylabel("Mejor J(x) global (escala log)")
+    plt.title("Evolución del mejor valor de función objetivo")
+    plt.grid(True, which="both", linestyle="--", alpha=0.5)
+    plt.show()
 
 
 def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada):
-    # Debe listar los cromosomas únicos que empatan en el mejor J* y sus pasos.
-    pass
+    if not poblacion_historica_evaluada:
+        print("No hay individuos evaluados.")
+        return []
+
+    j_estrella = min(ind["J"] for ind in poblacion_historica_evaluada)
+
+    # Nos quedamos solo con los individuos que empatan en J*, y usamos un dict
+    # (indexado por el cromosoma como tupla) para eliminar duplicados: si el mismo
+    # cromosoma aparece varias veces, solo queda una entrada.
+    candidatos = [ind for ind in poblacion_historica_evaluada if ind["J"] == j_estrella]
+    unicos = {tuple(ind["cromosoma"]): ind for ind in candidatos}
+
+    print(f"J* = {j_estrella}")
+    mejores = []
+    for i, ind in enumerate(unicos.values(), start=1):
+        print(f"{i}) cromosoma={ind['cromosoma']}  pasos(tau)={ind['tau']}")
+        mejores.append({"cromosoma": ind["cromosoma"], "J": ind["J"], "pasos": ind["tau"]})
+
+    return mejores
 
 
 def trayectoria_auditada(cromosoma_x, laberinto, posicion_inicial, direccion_inicial):
-    # Debe llamar a ejecutar_individuo() para obtener la trayectoria y reportarla
-    # paso a paso en coordenadas (X, Y): X = columna, Y = fila, según pide la pauta.
-    # (No debe reimplementar la simulación del laberinto aquí).
-    pass
+    # Reutiliza ejecutar_individuo() para obtener la trayectoria; posicion_llegada=None
+    # porque aqui solo interesan las posiciones recorridas, no las penalidades de meta.
+    datos = ejecutar_individuo(cromosoma_x, laberinto, posicion_inicial, direccion_inicial, None)
+    trayectoria = datos["trayectoria"]
+
+    # trayectoria[0] es la posicion inicial, antes de ejecutar cualquier gen.
+    fila_inicial, columna_inicial = trayectoria[0]
+    print(f"paso 0: inicio en (X={columna_inicial}, Y={fila_inicial})")
+
+    reporte = [(0, None, columna_inicial, fila_inicial)]
+
+    # cromosoma_x[k] es el gen que produjo trayectoria[k + 1], por eso emparejamos
+    # los genes con la trayectoria "corrida" un paso (trayectoria[1:]).
+    for paso, (gen, (fila, columna)) in enumerate(zip(cromosoma_x, trayectoria[1:]), start=1):
+        print(f"paso {paso}: gen={gen} -> (X={columna}, Y={fila})")
+        reporte.append((paso, gen, columna, fila))
+
+    return reporte
 
 
 def graficar_proporcion_validas(historial_proporcion_validas_por_generacion):
-    # Debe graficar la proporción de soluciones válidas por generación.
-    pass
+    # historial_proporcion_validas_por_generacion: lista con la fracción
+    # (entre 0 y 1) de cromosomas válidos en cada generación.
+    generaciones = list(range(1, len(historial_proporcion_validas_por_generacion) + 1))
+
+    plt.figure()
+    plt.plot(generaciones, historial_proporcion_validas_por_generacion, marker="o")
+    plt.ylim(0, 1)
+    plt.xlabel("Generación")
+    plt.ylabel("Proporción de soluciones válidas")
+    plt.title("Proporción de soluciones válidas por generación")
+    plt.grid(True, linestyle="--", alpha=0.5)
+    plt.show()
 
 
 # =============================================================================
