@@ -1,13 +1,14 @@
-from random import choices,choice, randint, random, randrange
+from random import choices, choice, randint, random, randrange, seed as fijar_semilla
 from typing import Callable, List, NamedTuple, Tuple
 from functools import partial
 from time import time
 import csv
 import matplotlib.pyplot as plt
+import argparse
 
-# ---------------------------------------------------------------------------
+# =============================================================================
 # CONSTANTES
-# ---------------------------------------------------------------------------
+# =============================================================================
 DIRECCIONES = ("N", "E", "S", "O")
 A = ["H", "A", "M", "Q"]
 VECTORES = {
@@ -29,7 +30,7 @@ Pos = Tuple[int, int]
 # ps -> parámetro de presión selectiva (ranking geométrico)
 # seed -> semilla aleatoria para reproducibilidad
 
-def leer_parametros(ruta_csav, n, pm, N, G, ps, seed):
+def leer_parametros(ruta_csv, n, pm, N, G, ps, seed):
     # Debe leer externamente ruta del CSV, n, pm, N, G, ps y seed (sin hardcodear).
     pass
 
@@ -52,12 +53,99 @@ def cargar_laberinto_csv(ruta_csv):
 
     return laberinto
 
-def validar_simbolos(laberinto): pass
-def encontrar_salida(laberinto): pass
-def encontrar_llegada(laberinto): pass
-def validar_muros_perimetrales(laberinto): pass
-def validar_zona_despejada(laberinto, posicion): pass
-def validar_laberinto(laberinto): pass
+def validar_simbolos(laberinto):
+    simbolos_validos = {"0","1","2","X"}
+    
+    for i, fila in enumerate(laberinto):
+        for j, celda in enumerate(fila):
+            if celda not in simbolos_validos:
+                raise ValueError(f"Simbolo invalido '{celda}' en la posicion ({i},{j})")
+
+def encontrar_salida(laberinto):
+    posiciones = [
+        (i, j)
+        for i, fila in enumerate(laberinto)
+        for j, celda in enumerate(fila)
+        if celda == "1"
+    ]
+ 
+    if len(posiciones) != 1:
+        raise ValueError(
+            f"Debe existir exactamente una salida ('1'); se encontraron {len(posiciones)}."
+        )
+ 
+    return posiciones[0]
+
+def encontrar_llegada(laberinto):
+    posiciones = [
+        (i, j)
+        for i, fila in enumerate(laberinto)
+        for j, celda in enumerate(fila)
+        if celda == "2"
+    ]
+    
+    if len(posiciones) != 1:
+        raise ValueError(f"Debe existir exactamente una llegada ('2'); se encontraron {len(posiciones)}.")
+
+    return posiciones[0]
+
+def validar_muros_perimetrales(laberinto):
+    total_filas = len(laberinto)
+    total_columnas = len(laberinto[0])
+ 
+    for i in range(total_filas):
+        for j in range(total_columnas):
+            en_el_perimetro = i == 0 or i == total_filas - 1 or j == 0 or j == total_columnas - 1
+            
+            if en_el_perimetro and laberinto[i][j] != "X":
+                raise ValueError(f"El perimetro debe ser todo muro; falla en la posicion ({i},{j}).")
+
+def validar_zona_despejada(laberinto, posicion):
+    total_filas = len(laberinto)
+    total_columnas = len(laberinto[0])
+    fila, columna = posicion
+ 
+    for a in range(fila - 1, fila + 2):
+        for b in range(columna - 1, columna + 2):
+            if (a, b) == (fila, columna):
+                continue
+ 
+            es_celda_interior = 1 <= a <= total_filas - 2 and 1 <= b <= total_columnas - 2
+ 
+            if es_celda_interior and laberinto[a][b] == "X":
+                raise ValueError(
+                    f"La celda interior ({a},{b}), junto a ({fila},{columna}), es un muro; "
+                    "debe estar despejada."
+                )
+
+def validar_laberinto(laberinto):
+    total_filas = len(laberinto)
+    if total_filas == 0:
+        raise ValueError("El laberinto esta vacio.")
+ 
+    total_columnas = len(laberinto[0])
+    for i, fila in enumerate(laberinto):
+        if len(fila) != total_columnas:
+            raise ValueError(f"La fila {i} no tiene el mismo numero de columnas que las demas.")
+ 
+    validar_simbolos(laberinto)
+    validar_muros_perimetrales(laberinto)
+ 
+    posicion_salida = encontrar_salida(laberinto)
+    posicion_llegada = encontrar_llegada(laberinto)
+ 
+    # Salida en la primera fila interior (fila 2 en indexacion 1 -> fila 1 en indexacion 0).
+    if posicion_salida[0] != 1:
+        raise ValueError("La salida debe estar en la primera fila interior válida (fila 2, indexacion 1).")
+ 
+    # Llegada en la ultima fila interior (fila m-1 en indexacion 1 -> fila m-2 en indexacion 0).
+    if posicion_llegada[0] != total_filas - 2:
+        raise ValueError("La llegada debe estar en la última fila interior válida (fila m-1, indexacion 1).")
+ 
+    validar_zona_despejada(laberinto, posicion_salida)
+    validar_zona_despejada(laberinto, posicion_llegada)
+ 
+    return posicion_salida, posicion_llegada
 
 # =============================================================================
 # ETAPA 2: REPRESENTACIÓN DEL INDIVIDUO Y EJECUCIÓN DEL CROMOSOMA (5%)
@@ -495,19 +583,95 @@ def graficar_proporcion_validas(historial_proporcion_validas_por_generacion):
 # =============================================================================
 
 def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed):
-    # Debe orquestar todo el ciclo evolutivo: carga, validación, evaluación, selección,
-    # cruzamiento, mutación, elitismo y reporte de resultados durante G generaciones.
-    # (Punto de entrada único: se elimina inicio(), que era un duplicado de esta función).
-    pass
+    fijar_semilla(seed)
+
+    laberinto = cargar_laberinto_csv(ruta_csv)
+    posicion_inicial, posicion_llegada = validar_laberinto(laberinto)
+    direccion_inicial = "S"
+
+    poblacion_actual = poblacion(N, n)
+    evaluados_totales = {}
+
+    mejor_global = None
+    historial_mejor_j = []
+    historial_prop_validas = []
+
+    for generacion in range(G):
+        evaluados_generacion = []
+
+        for individuo in poblacion_actual:
+            clave = tuple(individuo)
+
+            if clave not in evaluados_totales:
+                evaluados_totales[clave] = reevaluar_descendiente(
+                    individuo, laberinto, posicion_inicial, direccion_inicial, posicion_llegada
+                )
+
+            evaluados_generacion.append(evaluados_totales[clave])
+        # <- fin del "for individuo"; todo lo de abajo pasa una vez por generación
+
+        evaluados_generacion = ordenar_poblacion(evaluados_generacion)
+        mejor_de_la_generacion = evaluados_generacion[0]
+
+        clave_mejor_generacion = (mejor_de_la_generacion["rho"], mejor_de_la_generacion["J"])
+        clave_mejor_global = (mejor_global["rho"], mejor_global["J"]) if mejor_global else None
+
+        if mejor_global is None or clave_mejor_generacion < clave_mejor_global:
+            mejor_global = mejor_de_la_generacion
+
+        historial_mejor_j.append(mejor_global["J"])
+        proporcion_validas = sum(1 for ind in evaluados_generacion if ind["valido"]) / N
+        historial_prop_validas.append(proporcion_validas)
+
+        cromosomas_ordenados = [ind["cromosoma"] for ind in evaluados_generacion]
+        probabilidades = probabilidades_normalizadas(N, ps)
+        ci = distribucion_acumulada(probabilidades)
+
+        descendientes = []
+        while len(descendientes) < N - 1:
+            padre_1 = seleccionar_padre(cromosomas_ordenados, ci)
+            padre_2 = seleccionar_padre(cromosomas_ordenados, ci)
+
+            hijo_1, hijo_2 = cruzamiento_un_punto(padre_1, padre_2)
+            hijo_1 = mutacion_por_gen(hijo_1, pm)
+            hijo_2 = mutacion_por_gen(hijo_2, pm)
+
+            descendientes.append(hijo_1)
+            if len(descendientes) < N - 1:
+                descendientes.append(hijo_2)
+
+        poblacion_actual = aplicar_elitismo(mejor_global, descendientes)
+        assert len(poblacion_actual) == N, "La población debe mantenerse en tamaño N cada generación."
+    # <- fin del "for generacion"; todo lo de abajo pasa una sola vez, al terminar TODAS las generaciones
+
+    print(f"\nMejor cromosoma global: {mejor_global['cromosoma']}")
+    print(f"J={mejor_global['J']}  válido={mejor_global['valido']}  "
+          f"D={mejor_global['distancia']}  tau={mejor_global['tau']}")
+
+    mejores_unicos = listar_mejores_cromosomas_unicos(list(evaluados_totales.values()))
+
+    for mejor in mejores_unicos:
+        print(f"\nTrayectoria auditada de {mejor['cromosoma']} (X=columna, Y=fila):")
+        trayectoria_auditada(mejor["cromosoma"], laberinto, posicion_inicial, direccion_inicial)
+
+    graficar_mejor_objetivo_log(historial_mejor_j)
+    graficar_proporcion_validas(historial_prop_validas)
+
+    return {
+        "mejor_global": mejor_global,
+        "mejores_unicos": mejores_unicos,
+        "historial_mejor_j": historial_mejor_j,
+        "historial_prop_validas": historial_prop_validas,
+    }
 
 
 if __name__ == "__main__":
     algoritmo_genetico(
         ruta_csv="laberinto_valido.csv",
-        n=None,      # TODO: definir según parámetros de la actividad
-        pm=None,
-        N=None,
-        G=None,
-        ps=None,
-        seed=None
+        n=15,      # TODO: definir según parámetros de la actividad
+        pm=0.15,
+        N=21,
+        G=300,
+        ps=0.3,
+        seed=7
     )
