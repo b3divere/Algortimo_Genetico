@@ -554,9 +554,10 @@ def graficar_mejor_objetivo_log(historial_mejor_j_por_generacion):
     # al mismo tiempo en vez de bloquear una ventana a la vez.
 
 
-def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada):
+def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada, verbose=True):
     if not poblacion_historica_evaluada:
-        print("No hay individuos evaluados.")
+        if verbose:
+            print("No hay individuos evaluados.")
         return []
 
     j_estrella = min(ind["J"] for ind in poblacion_historica_evaluada)
@@ -564,26 +565,31 @@ def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada):
     candidatos = [ind for ind in poblacion_historica_evaluada if ind["J"] == j_estrella]
     unicos = {tuple(ind["cromosoma"]): ind for ind in candidatos}
 
-    print(f"J* = {j_estrella}")
+    if verbose:
+        print(f"J* = {j_estrella}")
+
     mejores = []
     for i, ind in enumerate(unicos.values(), start=1):
-        print(f"{i}) cromosoma={ind['cromosoma']}  pasos(tau)={ind['tau']}")
+        if verbose:
+            print(f"{i}) cromosoma={ind['cromosoma']}  pasos(tau)={ind['tau']}")
         mejores.append({"cromosoma": ind["cromosoma"], "J": ind["J"], "pasos": ind["tau"]})
 
     return mejores
 
 
-def trayectoria_auditada(cromosoma_x, laberinto, posicion_inicial, direccion_inicial):
+def trayectoria_auditada(cromosoma_x, laberinto, posicion_inicial, direccion_inicial, verbose=True):
     datos = ejecutar_individuo(cromosoma_x, laberinto, posicion_inicial, direccion_inicial, None)
     trayectoria = datos["trayectoria"]
 
     fila_inicial, columna_inicial = trayectoria[0]
-    print(f"paso 0: inicio en (X={columna_inicial}, Y={fila_inicial})")
+    if verbose:
+        print(f"paso 0: inicio en (X={columna_inicial}, Y={fila_inicial})")
 
     reporte = [(0, None, columna_inicial, fila_inicial)]
 
     for paso, (gen, (fila, columna)) in enumerate(zip(cromosoma_x, trayectoria[1:]), start=1):
-        print(f"paso {paso}: gen={gen} -> (X={columna}, Y={fila})")
+        if verbose:
+            print(f"paso {paso}: gen={gen} -> (X={columna}, Y={fila})")
         reporte.append((paso, gen, columna, fila))
 
     return reporte
@@ -607,7 +613,11 @@ def graficar_proporcion_validas(historial_proporcion_validas_por_generacion):
 # BUCLE PRINCIPAL DEL ALGORITMO GENÉTICO
 # =============================================================================
 
-def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed):
+def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed, mostrar_graficos=True, verbose=True):
+    # mostrar_graficos / verbose permiten reutilizar esta funcion desde otros
+    # contextos (p.ej. la app de Streamlit) sin abrir ventanas de matplotlib
+    # ni llenar la consola de prints. El comportamiento por defecto (llamado
+    # desde __main__) no cambia: sigue imprimiendo y graficando como antes.
     fijar_semilla(seed)
 
     laberinto = cargar_laberinto_csv(ruta_csv)
@@ -667,28 +677,37 @@ def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed):
         poblacion_actual = aplicar_elitismo(mejor_global, descendientes)
         assert len(poblacion_actual) == N, "La población debe mantenerse en tamaño N cada generación."
 
-    print(f"\nMejor cromosoma global: {mejor_global['cromosoma']}")
-    print(f"J={mejor_global['J']}  válido={mejor_global['valido']}  "
-          f"D={mejor_global['distancia']}  tau={mejor_global['tau']}")
+    if verbose:
+        print(f"\nMejor cromosoma global: {mejor_global['cromosoma']}")
+        print(f"J={mejor_global['J']}  válido={mejor_global['valido']}  "
+              f"D={mejor_global['distancia']}  tau={mejor_global['tau']}")
 
-    mejores_unicos = listar_mejores_cromosomas_unicos(list(evaluados_totales.values()))
+    mejores_unicos = listar_mejores_cromosomas_unicos(
+        list(evaluados_totales.values()), verbose=verbose
+    )
 
-    for mejor in mejores_unicos:
-        print(f"\nTrayectoria auditada de {mejor['cromosoma']} (X=columna, Y=fila):")
-        trayectoria_auditada(mejor["cromosoma"], laberinto, posicion_inicial, direccion_inicial)
+    if verbose:
+        for mejor in mejores_unicos:
+            print(f"\nTrayectoria auditada de {mejor['cromosoma']} (X=columna, Y=fila):")
+            trayectoria_auditada(mejor["cromosoma"], laberinto, posicion_inicial, direccion_inicial, verbose=verbose)
 
-    graficar_mejor_objetivo_log(historial_mejor_j)
-    graficar_proporcion_validas(historial_prop_validas)
-    # Un solo plt.show() al final: como ambas figuras ya fueron creadas
-    # (plt.figure() en cada funcion), esto las muestra a las dos juntas
-    # en vez de bloquear la ejecucion mostrando una a la vez.
-    plt.show()
+    if mostrar_graficos:
+        graficar_mejor_objetivo_log(historial_mejor_j)
+        graficar_proporcion_validas(historial_prop_validas)
+        # Un solo plt.show() al final: como ambas figuras ya fueron creadas
+        # (plt.figure() en cada funcion), esto las muestra a las dos juntas
+        # en vez de bloquear la ejecucion mostrando una a la vez.
+        plt.show()
 
     return {
         "mejor_global": mejor_global,
         "mejores_unicos": mejores_unicos,
         "historial_mejor_j": historial_mejor_j,
         "historial_prop_validas": historial_prop_validas,
+        "laberinto": laberinto,
+        "posicion_inicial": posicion_inicial,
+        "posicion_llegada": posicion_llegada,
+        "direccion_inicial": direccion_inicial,
     }
 
 
