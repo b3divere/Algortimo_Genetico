@@ -204,7 +204,7 @@ def tau(individuo, conjunto_tz, ultima_llegada):
     else:
         return n + 1
 
-def es_valida(individuo, conjunto_tz, tau_valor, n):
+def es_valida(conjunto_tz, tau_valor, n):
     # Debe determinar si el cromosoma llegó a la meta y se detuvo válidamente (solo Q después).
     return len(conjunto_tz) > 0 and tau_valor <= n
 
