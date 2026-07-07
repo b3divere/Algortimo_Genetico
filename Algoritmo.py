@@ -231,22 +231,46 @@ def ejecutar_individuo(
 # =============================================================================
 
 def llegada_efectiva(trayectoria, posicion_llegada):
-    # Debe construir Tz(x): pasos en que el individuo entra a la meta desde otra celda.
-    pass
+    # Tz(x) = { t : p_{t-1} != z  y  p_t == z }
+    # trayectoria es la lista de posiciones p_0, p_1, ..., p_n
+    # (p_0 es la posición inicial, antes de ejecutar cualquier gen)
+    tz = []
 
+    for t in range(1, len(trayectoria)):
+        posicion_anterior = trayectoria[t - 1]
+        posicion_actual = trayectoria[t]
+
+        if posicion_anterior != posicion_llegada and posicion_actual == posicion_llegada:
+            tz.append(t)
+
+    return tz
 
 def ultima_llegada_efectiva(conjunto_tz):
-    # Debe retornar ℓ(x) = max(Tz(x)), o None si Tz(x) es vacío.
-    # (Se mantiene separada de llegada_efectiva() a propósito: la pauta pide
-    # poder explicar Tz(x) y ℓ(x) como cantidades distintas en la oral, aunque
-    # técnicamente ℓ(x) sea solo un max() sobre el resultado de la anterior).
-    pass
-
+    # ℓ(x) = max(Tz(x)), o None si nunca llegó
+    if len(conjunto_tz) == 0:
+        return None
+    return max(conjunto_tz)
 
 def tau(individuo, conjunto_tz, ultima_llegada):
-    # Debe calcular τ(x): ℓ(x) si hay detención válida tras la última llegada, si no n+1.
-    pass
+    n = len(individuo)
 
+    # Si Tz(x) = ∅ (nunca llegó), no hay tau válido
+    if len(conjunto_tz) == 0:
+        return n + 1
+
+    # La llegada no puede ser en el último gen (debe haber al menos un Q después)
+    if ultima_llegada >= n:
+        return n + 1
+
+    # Todos los genes después de la última llegada deben ser Q
+    genes_despues = individuo[ultima_llegada:]  # ultima_llegada es 1-indexado (t),
+
+    todos_son_q = all(gen == "Q" for gen in genes_despues)
+
+    if todos_son_q:
+        return ultima_llegada
+    else:
+        return n + 1
 
 def es_valida(individuo, conjunto_tz, tau_valor, n):
     # Debe determinar si el cromosoma llegó a la meta y se detuvo válidamente (solo Q después).
