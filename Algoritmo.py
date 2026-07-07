@@ -3,6 +3,7 @@ from typing import Callable, List, NamedTuple, Tuple
 from functools import partial
 from time import time
 import csv
+import json
 import matplotlib.pyplot as plt
 import argparse
 
@@ -30,39 +31,42 @@ Pos = Tuple[int, int]
 # ps -> parámetro de presión selectiva (ranking geométrico)
 # seed -> semilla aleatoria para reproducibilidad
 
+CAMPOS_CONFIG_REQUERIDOS = ("csv", "n", "pm", "N", "G", "ps", "seed")
+
 def leer_parametros():
-    # Lee externamente ruta del CSV, n, pm, N, G, ps y seed usando argparse.
-    # Los valores quedan definidos aca (como default), no repartidos ni
-    # fijados rigidamente en la logica principal (__main__). Si se pasan
-    # por linea de comandos, estos defaults se sobrescriben.
+    # Todos los parametros del algoritmo (ruta del CSV, n, pm, N, G, ps y seed)
+    # se leen desde un archivo de configuracion JSON. Por linea de comandos
+    # solo se indica la RUTA de ese archivo (--config); no hay overrides
+    # individuales por parametro.
     parser = argparse.ArgumentParser(
-        description="Algoritmo genetico para la resolucion de laberintos (INFO-1159)"
+        description="Algoritmo genetico para la resolucion de laberintos"
     )
-    parser.add_argument("--csv", type=str, default="laberinto_valido.csv",
-                         help="Ruta del archivo CSV del laberinto")
-    parser.add_argument("--n", type=int, default=15,
-                         help="Longitud del cromosoma")
-    parser.add_argument("--pm", type=float, default=0.15,
-                         help="Probabilidad de mutacion por gen")
-    parser.add_argument("--N", type=int, default=21,
-                         help="Numero de cromosomas por generacion (debe ser impar)")
-    parser.add_argument("--G", type=int, default=300,
-                         help="Numero total de generaciones")
-    parser.add_argument("--ps", type=float, default=0.3,
-                         help="Presion selectiva (ranking geometrico)")
-    parser.add_argument("--seed", type=int, default=7,
-                         help="Semilla aleatoria para reproducibilidad")
+    parser.add_argument("--config", type=str, default="config.json",
+                         help="Ruta del archivo de configuracion JSON")
 
     argumentos = parser.parse_args()
 
+    return cargar_configuracion(argumentos.config)
+
+
+def cargar_configuracion(ruta_config):
+    with open(ruta_config, "r", encoding="utf-8") as archivo_config:
+        config = json.load(archivo_config)
+
+    faltantes = [campo for campo in CAMPOS_CONFIG_REQUERIDOS if campo not in config]
+    if faltantes:
+        raise ValueError(
+            f"Faltan claves en el archivo de configuracion '{ruta_config}': {faltantes}"
+        )
+
     return (
-        argumentos.csv,
-        argumentos.n,
-        argumentos.pm,
-        argumentos.N,
-        argumentos.G,
-        argumentos.ps,
-        argumentos.seed,
+        config["csv"],
+        config["n"],
+        config["pm"],
+        config["N"],
+        config["G"],
+        config["ps"],
+        config["seed"],
     )
 
 # =============================================================================

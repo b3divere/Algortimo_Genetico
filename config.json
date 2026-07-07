@@ -1,0 +1,9 @@
+{
+  "csv": "laberinto_valido.csv",
+  "n": 15,
+  "pm": 0.15,
+  "N": 21,
+  "G": 300,
+  "ps": 0.3,
+  "seed": 7
+}
