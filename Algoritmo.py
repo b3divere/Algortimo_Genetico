@@ -33,11 +33,8 @@ Pos = Tuple[int, int]
 
 CAMPOS_CONFIG_REQUERIDOS = ("csv", "n", "pm", "N", "G", "ps", "seed")
 
+# Lee la ruta del archivo de configuración desde línea de comandos y delega la carga.
 def leer_parametros():
-    # Todos los parametros del algoritmo (ruta del CSV, n, pm, N, G, ps y seed)
-    # se leen desde un archivo de configuracion JSON. Por linea de comandos
-    # solo se indica la RUTA de ese archivo (--config); no hay overrides
-    # individuales por parametro.
     parser = argparse.ArgumentParser(
         description="Algoritmo genetico para la resolucion de laberintos"
     )
@@ -49,6 +46,7 @@ def leer_parametros():
     return cargar_configuracion(argumentos.config)
 
 
+# Carga y valida los parámetros del algoritmo desde un archivo JSON.
 def cargar_configuracion(ruta_config):
     with open(ruta_config, "r", encoding="utf-8") as archivo_config:
         config = json.load(archivo_config)
@@ -73,11 +71,8 @@ def cargar_configuracion(ruta_config):
 # ETAPA 1: LECTURA, PARÁMETROS Y VALIDACIÓN DEL LABERINTO (5%)
 # =============================================================================
 
+# Lee el CSV del laberinto y lo retorna como matriz de filas.
 def cargar_laberinto_csv(ruta_csv):
-    # Lee el CSV recibido por parámetro (ruta_csv) y retorna la matriz del laberinto.
-    # (Misma lógica del borrador anterior, pero usando el parámetro ruta_csv en vez
-    # de un nombre de archivo fijo a nivel de módulo, para no depender de una ruta
-    # rígida como exige la pauta).
     laberinto = []
 
     with open(ruta_csv, "r", encoding="utf-8") as archivo:
@@ -88,6 +83,7 @@ def cargar_laberinto_csv(ruta_csv):
 
     return laberinto
 
+# Verifica que todas las celdas del laberinto usen símbolos válidos.
 def validar_simbolos(laberinto):
     simbolos_validos = {"0","1","2","X"}
     
@@ -96,6 +92,7 @@ def validar_simbolos(laberinto):
             if celda not in simbolos_validos:
                 raise ValueError(f"Simbolo invalido '{celda}' en la posicion ({i},{j})")
 
+# Ubica la única celda de salida ('1') del laberinto.
 def encontrar_salida(laberinto):
     posiciones = [
         (i, j)
@@ -111,6 +108,7 @@ def encontrar_salida(laberinto):
  
     return posiciones[0]
 
+# Ubica la única celda de llegada ('2') del laberinto.
 def encontrar_llegada(laberinto):
     posiciones = [
         (i, j)
@@ -124,6 +122,7 @@ def encontrar_llegada(laberinto):
 
     return posiciones[0]
 
+# Verifica que todo el perímetro del laberinto sea muro.
 def validar_muros_perimetrales(laberinto):
     total_filas = len(laberinto)
     total_columnas = len(laberinto[0])
@@ -135,6 +134,7 @@ def validar_muros_perimetrales(laberinto):
             if en_el_perimetro and laberinto[i][j] != "X":
                 raise ValueError(f"El perimetro debe ser todo muro; falla en la posicion ({i},{j}).")
 
+# Verifica que las celdas interiores vecinas a una posición (salida o llegada) estén despejadas.
 def validar_zona_despejada(laberinto, posicion):
     total_filas = len(laberinto)
     total_columnas = len(laberinto[0])
@@ -153,6 +153,7 @@ def validar_zona_despejada(laberinto, posicion):
                     "debe estar despejada."
                 )
 
+# Ejecuta todas las validaciones estructurales del laberinto y retorna salida y llegada.
 def validar_laberinto(laberinto):
     total_filas = len(laberinto)
     if total_filas == 0:
@@ -169,11 +170,9 @@ def validar_laberinto(laberinto):
     posicion_salida = encontrar_salida(laberinto)
     posicion_llegada = encontrar_llegada(laberinto)
  
-    # Salida en la primera fila interior (fila 2 en indexacion 1 -> fila 1 en indexacion 0).
     if posicion_salida[0] != 1:
         raise ValueError("La salida debe estar en la primera fila interior válida (fila 2, indexacion 1).")
  
-    # Llegada en la ultima fila interior (fila m-1 en indexacion 1 -> fila m-2 en indexacion 0).
     if posicion_llegada[0] != total_filas - 2:
         raise ValueError("La llegada debe estar en la última fila interior válida (fila m-1, indexacion 1).")
  
@@ -186,23 +185,19 @@ def validar_laberinto(laberinto):
 # ETAPA 2: REPRESENTACIÓN DEL INDIVIDUO Y EJECUCIÓN DEL CROMOSOMA (5%)
 # =============================================================================
 
+# Genera un cromosoma aleatorio de la longitud dada (genes H, A, M, Q).
 def cromosoma(longitud):
-    # H gira 90◦ en sentido horario
-    # A gira 90◦ en sentido antihorario
-    # M avanza un cuadro en la dirección hacia la cual está mirando
-    # Q permanece quieto y conserva posición y dirección
     return choices(A, k=longitud)
 
+# Genera una población inicial de N cromosomas de longitud n.
 def poblacion(N, n):
     if N % 2 == 0 or N < 3:
         raise ValueError("El tamaño de la poblacion debe ser impar y >= 3")
     
     return [cromosoma(n) for _ in range(N)]
 
+# Indica si una posición está dentro del laberinto y no es muro.
 def es_transitable(laberinto, pos):
-    # OJO: posicion_tentativa es una tupla (fila, columna); compararla con "<=" contra
-    # un entero (tamaño) y usarla como índice de una sola fila_laberinto no es compatible
-    # con una matriz m x r, y falla en Python 3 al comparar tupla con int.
     fila, columna = pos
     
     total_filas = len(laberinto)
@@ -215,14 +210,8 @@ def es_transitable(laberinto, pos):
     
     return laberinto[fila][columna] != "X"
 
-# la direccion tiene que ser una tupla que supe la posicion actual con cualquiera de los vectores
-# individuo = tipo : ["M", "H", "M", "Q"]
-# laberinto = tipo matriz
-# posicion_inicial = tipo (3,1)
-# direccion inicial = tipo "s"
-
+# Simula el movimiento del individuo en el laberinto y retorna trayectoria y datos crudos.
 def ejecutar_individuo(individuo, laberinto, posicion_inicial, direccion_inicial, posicion_llegada):
-    """Simula el movimiento del individuo y retorna los datos puros para evaluar luego."""
     direccion = direccion_inicial
     posicion = posicion_inicial
     
@@ -235,7 +224,6 @@ def ejecutar_individuo(individuo, laberinto, posicion_inicial, direccion_inicial
     for gen in individuo:
         pos_anterior = posicion
         
-        # Revisamos si hace acciones estando ya en la meta
         if pos_anterior == posicion_llegada and gen in ("H", "A", "M"):
             acciones_en_meta += 1
 
@@ -262,7 +250,7 @@ def ejecutar_individuo(individuo, laberinto, posicion_inicial, direccion_inicial
             contador_giros += 1
 
         elif gen == "Q":
-            pass # Q no hace nada
+            pass
 
         trayectoria.append(posicion)
 
@@ -281,13 +269,12 @@ def ejecutar_individuo(individuo, laberinto, posicion_inicial, direccion_inicial
 # ETAPA 3: FUNCIÓN OBJETIVO, VALIDEZ Y PENALIDADES (15%)
 # =============================================================================
 
+# Calcula la distancia Manhattan entre la posición final y la llegada.
 def distancia_manhattan(posicion_final, posicion_llegada):
     return abs(posicion_final[0] - posicion_llegada[0]) + abs(posicion_final[1] - posicion_llegada[1])
 
+# Retorna los instantes en que la trayectoria entra efectivamente a la llegada.
 def llegada_efectiva(trayectoria, posicion_llegada):
-    # Tz(x) = { t : p_{t-1} != z  y  p_t == z }
-    # trayectoria es la lista de posiciones p_0, p_1, ..., p_n
-    # (p_0 es la posición inicial, antes de ejecutar cualquier gen)
     tz = []
 
     for t in range(1, len(trayectoria)):
@@ -299,25 +286,23 @@ def llegada_efectiva(trayectoria, posicion_llegada):
 
     return tz
 
+# Retorna el último instante de llegada efectiva, o None si nunca llegó.
 def ultima_llegada_efectiva(conjunto_tz):
-    # ℓ(x) = max(Tz(x)), o None si nunca llegó
     if len(conjunto_tz) == 0:
         return None
     return max(conjunto_tz)
 
+# Calcula tau(x): el instante de detención válida tras la última llegada, o n+1 si no aplica.
 def tau(individuo, conjunto_tz, ultima_llegada):
     n = len(individuo)
 
-    # Si Tz(x) = ∅ (nunca llegó), no hay tau válido
     if len(conjunto_tz) == 0:
         return n + 1
 
-    # La llegada no puede ser en el último gen (debe haber al menos un Q después)
     if ultima_llegada >= n:
         return n + 1
 
-    # Todos los genes después de la última llegada deben ser Q
-    genes_despues = individuo[ultima_llegada:]  # ultima_llegada es 1-indexado (t),
+    genes_despues = individuo[ultima_llegada:]
 
     todos_son_q = all(gen == "Q" for gen in genes_despues)
 
@@ -326,18 +311,16 @@ def tau(individuo, conjunto_tz, ultima_llegada):
     else:
         return n + 1
 
+# Determina si el cromosoma llegó a la meta y se detuvo válidamente.
 def es_valida(conjunto_tz, tau_valor, n):
-    # Debe determinar si el cromosoma llegó a la meta y se detuvo válidamente (solo Q después).
     return len(conjunto_tz) > 0 and tau_valor <= n
 
 # =============================================================================
 # PENALIZACIONES
 # =============================================================================
 
+# Penaliza las pausas (Q) intermedias antes del último gen activo.
 def penalizacion_pausa(individuo):
-    # OJO: la pauta define PQ(x) = 10*Qint(x), pero aquí se retorna contador_pausas*30
-    # (30 en vez de 10, y usa un contador que se resetea dentro de ejecutar_individuo
-    # en vez de contarse directamente sobre la secuencia de genes del cromosoma).
     ultimo_activo = -1
     for k, gen in enumerate(individuo):
         if gen != "Q":
@@ -350,26 +333,27 @@ def penalizacion_pausa(individuo):
     return pausas_interiores * 10
 
 
+# Penaliza los choques contra muros.
 def penalizacion_choques(contador_choques):
-    # Debe calcular PC(x) = 30 * C(x).
-    # (Se deja como stub: la versión anterior "contador_choques =+ 30" no acumula
-    # correctamente -es asignación, no incremento- y no multiplica por 30 por choque).
     return contador_choques * 30
 
 
+# Calcula f(b) para un bloque de giros consecutivos de tamaño b.
 def f_bloque(b):
-    # Debe calcular f(b): 0 si b<=1, 10 si b=2, 30 si b=3, 120*(b-3) si b>=4.
     if b <= 1: return 0
     if b == 2: return 10
     if b == 3: return 30
     return 120 * (b - 3)
 
+# Penaliza los bloques de giros consecutivos según f(b).
 def penalizacion_bloques_giros(lista_bloques_giros):
     return sum(f_bloque(b) for b in lista_bloques_giros)
 
+# Penaliza las acciones activas realizadas después de llegar a la meta.
 def penalizacion_post_meta(acciones_activas_post_meta):
     return acciones_activas_post_meta * 100
 
+# Penaliza las Q prematuras cuando el individuo no es válido.
 def penalizacion_detencion_prematura(individuo, individuo_es_valido):
     if individuo_es_valido: return 0
     
@@ -381,12 +365,15 @@ def penalizacion_detencion_prematura(individuo, individuo_es_valido):
     q_prematuras = len(individuo) - (ultimo_activo + 1)
     return q_prematuras * 10
 
+# Aplica una penalización fija cuando el individuo no es válido.
 def penalizacion_invalidez(individuo_es_valido):
     return 0 if individuo_es_valido else 10000
 
+# Combina distancia, tau y todas las penalizaciones en la función objetivo J(x).
 def funcion_objetivo(distancia, tau_valor, pq, pc, pr, pa, pprem, pinv):
     return distancia + tau_valor + pq + pc + pr + pa + pprem + pinv
 
+# Convierte J(x) en fitness (a menor J, mayor fitness).
 def calcular_fitness(j_valor):
     return -j_valor
 
@@ -394,8 +381,8 @@ def calcular_fitness(j_valor):
 # ETAPA 4: SELECCIÓN POR RANKING GEOMÉTRICO Y ELITISMO (8%)
 # =============================================================================
 
+# Calcula rho(x): 0 si válido, 1 si llegó pero no válido, 2 si nunca llegó.
 def rho(individuo_es_valido, llego_alguna_vez):
-    # Debe calcular ρ(x): 0 si válido, 1 si llegó pero no válido, 2 si nunca llegó.
     if individuo_es_valido:
         return 0
     elif llego_alguna_vez:
@@ -403,16 +390,13 @@ def rho(individuo_es_valido, llego_alguna_vez):
     else:
         return 2
 
+# Ordena la población evaluada lexicográficamente por (rho, J, distancia, tau).
 def ordenar_poblacion(poblacion_evaluada):
-    # Debe ordenar la población lexicográficamente por (ρ(x), J(x), D(x), τ(x)).
     poblacion_evaluada.sort(key=lambda ind: (ind["rho"], ind["J"], ind["distancia"], ind["tau"]))
     return poblacion_evaluada
 
+# Calcula las probabilidades normalizadas de ranking geométrico para N individuos.
 def probabilidades_normalizadas(N, ps):
-    # Debe calcular, en un solo paso, los pesos no normalizados wi = ps*(1-ps)^(i-1)
-    # y luego normalizarlos: Pi = wi / (1-(1-ps)^N) para cada posición i=1..N.
-    # (Se fusiona aquí lo que antes era pesos_ranking_geometrico(): wi nunca se usa
-    # ni se reporta por separado, es solo un paso intermedio hacia Pi).
     probabilidades = []
     
     denominador = 1 - (1 - ps)**N
@@ -423,8 +407,8 @@ def probabilidades_normalizadas(N, ps):
     
     return probabilidades
 
+# Calcula la distribución acumulada Ci a partir de las probabilidades Pi.
 def distribucion_acumulada(probabilidades):
-    # Debe calcular Ci = suma acumulada de P1..Pi.
     ci = []
     suma_actual = 0
     
@@ -433,8 +417,8 @@ def distribucion_acumulada(probabilidades):
         ci.append(suma_actual)
     return ci
 
+# Selecciona un padre por ranking geométrico usando la distribución acumulada.
 def seleccionar_padre(poblacion_ordenada, distribucion_acumulada_ci):
-    # Debe generar u~U(0,1) y elegir el primer cromosoma con u <= Ci.
     u = random()
     
     for i in range(len(distribucion_acumulada_ci)):
@@ -443,8 +427,8 @@ def seleccionar_padre(poblacion_ordenada, distribucion_acumulada_ci):
     
     return poblacion_ordenada[-1]
 
+# Construye la nueva generación conservando el mejor individuo global (elitismo).
 def aplicar_elitismo(mejor_global, descendientes):
-    # Debe construir P_{t+1} = {x*_t} ∪ Ot, conservando el mejor global.
     nueva_poblacion = [mejor_global["cromosoma"]]
     
     for hijo in descendientes:
@@ -456,6 +440,7 @@ def aplicar_elitismo(mejor_global, descendientes):
 # ETAPA 5: CRUZAMIENTO, MUTACIÓN POR GEN Y REEVALUACIÓN (12%)
 # =============================================================================
 
+# Realiza cruzamiento de un punto entre dos padres y retorna dos descendientes.
 def cruzamiento_un_punto(padre_x, padre_y):
     n = len(padre_x)
 
@@ -472,10 +457,8 @@ def cruzamiento_un_punto(padre_x, padre_y):
 
     return descendiente_1, descendiente_2
 
+# Muta un gen a una acción distinta de la actual, elegida al azar.
 def mutar_gen(gen_actual):
-    # Tomo todas las acciones posibles: H, A, M, Q
-    # Le quito la acción actual, para no repetirla
-    # Elijo una al azar entre las que quedan
     opciones = []
     for accion in A:
         if accion != gen_actual:
@@ -483,26 +466,21 @@ def mutar_gen(gen_actual):
 
     return choice(opciones)
 
+# Aplica mutación gen a gen sobre un descendiente, con probabilidad pm por gen.
 def mutacion_por_gen(descendiente, pm):
-    # Copio el cromosoma para no modificar el original
     nuevo = list(descendiente)
 
-    # Recorro cada gen, uno por uno
     for i in range(len(nuevo)):
-        # Tiro un número al azar entre 0 y 1
         numero_al_azar = random()
 
-        # Si el número es menor que pm, ese gen muta
         if numero_al_azar < pm:
             nuevo[i] = mutar_gen(nuevo[i])
 
     return nuevo
 
 
+# Ejecuta y evalúa un descendiente desde cero, recalculando J(x) y sus componentes.
 def reevaluar_descendiente(descendiente, laberinto, posicion_inicial, direccion_inicial, posicion_llegada):
-    # Debe llamar a ejecutar_individuo() para obtener la trayectoria desde cero,
-    # y luego usar las funciones de Etapa 3 sobre ese resultado para recalcular J(x) y ϕ(x).
-    # (No debe reimplementar la simulación del laberinto aquí).
     datos = ejecutar_individuo(descendiente, laberinto, posicion_inicial, direccion_inicial, posicion_llegada)
     
     n = len(descendiente)
@@ -539,6 +517,7 @@ def reevaluar_descendiente(descendiente, laberinto, posicion_inicial, direccion_
 # ETAPA 6: RESULTADOS MÍNIMOS Y GRÁFICAS (5%)
 # =============================================================================
 
+# Grafica la evolución del mejor J(x) global por generación en escala logarítmica.
 def graficar_mejor_objetivo_log(historial_mejor_j_por_generacion):
     generaciones = list(range(1, len(historial_mejor_j_por_generacion) + 1))
 
@@ -549,11 +528,9 @@ def graficar_mejor_objetivo_log(historial_mejor_j_por_generacion):
     plt.ylabel("Mejor J(x) global (escala log)")
     plt.title("Evolución del mejor valor de función objetivo")
     plt.grid(True, which="both", linestyle="--", alpha=0.5)
-    # No se llama a plt.show() aca: se muestran todas las figuras juntas
-    # al final, en algoritmo_genetico(), para que ambas queden visibles
-    # al mismo tiempo en vez de bloquear una ventana a la vez.
 
 
+# Lista los cromosomas únicos que alcanzan el mejor J* encontrado.
 def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada, verbose=True):
     if not poblacion_historica_evaluada:
         if verbose:
@@ -577,6 +554,7 @@ def listar_mejores_cromosomas_unicos(poblacion_historica_evaluada, verbose=True)
     return mejores
 
 
+# Reproduce paso a paso la trayectoria de un cromosoma dado, imprimiéndola si se pide.
 def trayectoria_auditada(cromosoma_x, laberinto, posicion_inicial, direccion_inicial, verbose=True):
     datos = ejecutar_individuo(cromosoma_x, laberinto, posicion_inicial, direccion_inicial, None)
     trayectoria = datos["trayectoria"]
@@ -595,6 +573,7 @@ def trayectoria_auditada(cromosoma_x, laberinto, posicion_inicial, direccion_ini
     return reporte
 
 
+# Grafica la proporción de soluciones válidas por generación.
 def graficar_proporcion_validas(historial_proporcion_validas_por_generacion):
     generaciones = list(range(1, len(historial_proporcion_validas_por_generacion) + 1))
 
@@ -605,19 +584,15 @@ def graficar_proporcion_validas(historial_proporcion_validas_por_generacion):
     plt.ylabel("Proporción de soluciones válidas")
     plt.title("Proporción de soluciones válidas por generación")
     plt.grid(True, linestyle="--", alpha=0.5)
-    # Idem: no se llama a plt.show() aca; se muestran ambas figuras juntas
-    # al final del algoritmo.
 
 
 # =============================================================================
 # BUCLE PRINCIPAL DEL ALGORITMO GENÉTICO
 # =============================================================================
 
+# Ejecuta el algoritmo genético completo: inicialización, evolución por generaciones,
+# selección, cruzamiento, mutación, elitismo y reporte/gráficas finales.
 def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed, mostrar_graficos=True, verbose=True):
-    # mostrar_graficos / verbose permiten reutilizar esta funcion desde otros
-    # contextos (p.ej. la app de Streamlit) sin abrir ventanas de matplotlib
-    # ni llenar la consola de prints. El comportamiento por defecto (llamado
-    # desde __main__) no cambia: sigue imprimiendo y graficando como antes.
     fijar_semilla(seed)
 
     laberinto = cargar_laberinto_csv(ruta_csv)
@@ -694,9 +669,6 @@ def algoritmo_genetico(ruta_csv, n, pm, N, G, ps, seed, mostrar_graficos=True, v
     if mostrar_graficos:
         graficar_mejor_objetivo_log(historial_mejor_j)
         graficar_proporcion_validas(historial_prop_validas)
-        # Un solo plt.show() al final: como ambas figuras ya fueron creadas
-        # (plt.figure() en cada funcion), esto las muestra a las dos juntas
-        # en vez de bloquear la ejecucion mostrando una a la vez.
         plt.show()
 
     return {
