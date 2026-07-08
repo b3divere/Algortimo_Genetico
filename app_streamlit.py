@@ -12,6 +12,9 @@ import time
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+from matplotlib.path import Path as PathDeMarcador
+from matplotlib.markers import MarkerStyle
+from matplotlib.transforms import Affine2D
 import numpy as np
 import streamlit as st
 
@@ -20,6 +23,7 @@ from Algoritmo import (
     cargar_laberinto_csv,
     ejecutar_individuo,
     validar_laberinto,
+    DIRECCIONES,
 )
 
 # =============================================================================
@@ -36,13 +40,25 @@ COLORES_CELDAS = {
     "2": "#2ecc71",   # llegada
 }
 
+# Angulo (en grados) que hay que rotar la flecha (que por defecto apunta
+# hacia "arriba", es decir Norte) para que quede orientada segun cada
+# direccion cardinal del robot.
+ANGULOS_DIRECCION = {"N": 0, "E": -90, "S": 180, "O": 90}
+
 
 # =============================================================================
 # HELPERS DE VISUALIZACION
 # =============================================================================
-def dibujar_laberinto(laberinto, trayectoria=None, hasta_paso=None, titulo="", escala=0.5):
+def dibujar_laberinto(laberinto, trayectoria=None, hasta_paso=None, titulo="", escala=0.5, direcciones=None):
     """Dibuja la grilla del laberinto y, opcionalmente, la trayectoria recorrida
     hasta el paso indicado (para poder animarla con un slider).
+
+    `direcciones` es la lista de direcciones cardinales ("N","E","S","O") del
+    robot en cada paso (mismo largo e indexacion que `trayectoria`). Se usa
+    para orientar la flecha segun hacia donde MIRA el robot, en vez de
+    inferirlo por el desplazamiento entre puntos: si el ultimo gen fue un
+    giro (H/A) la posicion no cambia, y el desplazamiento daria (0,0), lo
+    que dejaba la flecha sin rotar aunque el robot si haya girado.
 
     `escala` es el tamaño de cada celda en pulgadas (tamaño fijo, no se
     recalcula según filas/columnas). Si quieres que se vea más chico en
@@ -69,8 +85,43 @@ def dibujar_laberinto(laberinto, trayectoria=None, hasta_paso=None, titulo="", e
 
         ax.plot(xs, ys, color="#e74c3c", linewidth=2, zorder=3)
         ax.scatter(xs, ys, color="#e74c3c", s=25, zorder=4)
-        # Marca la posicion actual (ultimo punto del recorte) con una estrella
-        ax.scatter(xs[-1], ys[-1], color="#c0392b", s=180, marker="*", zorder=5)
+
+        # Flecha de navegacion en la posicion actual. Se orienta segun la
+        # direccion REAL del robot en ese paso (parametro `direcciones`).
+        # Si no se entrega (por compatibilidad con otros posibles usos de
+        # esta funcion), se usa como respaldo el calculo anterior a partir
+        # del desplazamiento entre el penultimo y el ultimo punto.
+        if direcciones is not None:
+            indice_direccion = hasta_paso if hasta_paso is not None else len(recorte) - 1
+            angulo = ANGULOS_DIRECCION[direcciones[indice_direccion]]
+        elif len(xs) >= 2:
+            dx = xs[-1] - xs[-2]
+            dy = ys[-1] - ys[-2]
+            angulo = np.degrees(np.arctan2(dy, dx)) - 90  # la forma apunta hacia arriba por defecto
+        else:
+            angulo = 0
+
+        # Forma tipo "dardo" (punta angosta + muesca trasera) para que
+        # se note claramente cual extremo es el frente.
+        vertices_dardo = [
+            (0.0, 1.0),     # punta (frente)
+            (0.65, -0.7),   # esquina trasera derecha
+            (0.0, -0.25),   # muesca central trasera
+            (-0.65, -0.7),  # esquina trasera izquierda
+            (0.0, 1.0),     # cierre
+        ]
+        codigos_dardo = [
+            PathDeMarcador.MOVETO, PathDeMarcador.LINETO, PathDeMarcador.LINETO,
+            PathDeMarcador.LINETO, PathDeMarcador.CLOSEPOLY,
+        ]
+        forma_dardo = PathDeMarcador(vertices_dardo, codigos_dardo)
+
+        marcador_flecha = MarkerStyle(forma_dardo, transform=Affine2D().rotate_deg(angulo))
+        ax.scatter(
+            xs[-1], ys[-1],
+            color="#c0392b", edgecolors="#ffffff", linewidths=1.2,
+            s=260, marker=marcador_flecha, zorder=5,
+        )
 
     ax.set_xlim(0, total_columnas)
     ax.set_ylim(0, total_filas)
@@ -82,14 +133,51 @@ def dibujar_laberinto(laberinto, trayectoria=None, hasta_paso=None, titulo="", e
     return fig
 
 
+def calcular_direcciones_por_paso(cromosoma, direccion_inicial):
+    """Recalcula, paso a paso, hacia donde queda mirando el robot.
+
+    Replica exactamente el mismo giro que aplica ejecutar_individuo() en
+    Algoritmo.py para los genes "H" (horario) y "A" (antihorario): mismo
+    orden en DIRECCIONES ("N","E","S","O") y mismo sentido de rotacion.
+    No se reimplementa la simulacion del movimiento (eso lo sigue haciendo
+    ejecutar_individuo); esto solo lleva la cuenta de la orientacion,
+    porque ejecutar_individuo no la expone en su diccionario de retorno.
+
+    El resultado tiene el mismo largo que `trayectoria` (incluye el paso 0,
+    la direccion inicial antes de ejecutar cualquier gen).
+    """
+    direccion = direccion_inicial
+    direcciones = [direccion]
+
+    for gen in cromosoma:
+        if gen == "H":
+            indice = DIRECCIONES.index(direccion)
+            direccion = DIRECCIONES[(indice + 1) % 4]
+        elif gen == "A":
+            indice = DIRECCIONES.index(direccion)
+            direccion = DIRECCIONES[(indice - 1) % 4]
+        # "M" y "Q" no cambian la direccion
+
+        direcciones.append(direccion)
+
+    return direcciones
+
+
 def trayectoria_de_posiciones(cromosoma, laberinto, posicion_inicial, direccion_inicial):
-    """Recalcula la trayectoria (fila, columna) de un cromosoma ya evaluado,
-    para poder graficarla (algoritmo_genetico no la devuelve para cada
-    individuo, solo el resumen numerico)."""
+    """Recalcula la trayectoria (fila, columna) y la direccion en cada paso de
+    un cromosoma ya evaluado, para poder graficarlas (algoritmo_genetico no
+    las devuelve para cada individuo, solo el resumen numerico).
+
+    La trayectoria de posiciones viene de ejecutar_individuo (no se
+    reimplementa la simulacion del laberinto). Las direcciones se calculan
+    aparte con calcular_direcciones_por_paso, porque ejecutar_individuo no
+    las retorna.
+    """
     datos = ejecutar_individuo(
         cromosoma, laberinto, posicion_inicial, direccion_inicial, None
     )
-    return datos["trayectoria"]
+    direcciones = calcular_direcciones_por_paso(cromosoma, direccion_inicial)
+    return datos["trayectoria"], direcciones
 
 
 # =============================================================================
@@ -222,11 +310,15 @@ with c2:
 # --- Trayectorias de los mejores cromosomas, lado a lado -------------------
 st.subheader("Trayectoria en el laberinto")
 
-# Precalculamos la trayectoria de cada cromosoma una sola vez
-trayectorias = [
-    trayectoria_de_posiciones(ind["cromosoma"], laberinto, posicion_inicial, direccion_inicial)
-    for ind in mejores_unicos
-]
+# Precalculamos la trayectoria y la direccion de cada cromosoma una sola vez
+trayectorias = []
+direcciones_por_individuo = []
+for ind in mejores_unicos:
+    tray, direcciones = trayectoria_de_posiciones(
+        ind["cromosoma"], laberinto, posicion_inicial, direccion_inicial
+    )
+    trayectorias.append(tray)
+    direcciones_por_individuo.append(direcciones)
 
 # Inicializar/asegurar el paso de cada panel
 for indice, tray in enumerate(trayectorias):
@@ -253,11 +345,12 @@ for indice in range(len(trayectorias)):
         st.session_state[f"paso_actual_{indice}"] = st.session_state.pop(key_pendiente)
 
 
-def _render_panel(indice, individuo, tray, paso_a_mostrar, placeholder):
+def _render_panel(indice, individuo, tray, direcciones, paso_a_mostrar, placeholder):
     cromosoma = individuo["cromosoma"]
     gen_actual = cromosoma[paso_a_mostrar - 1] if paso_a_mostrar > 0 else "—"
     fig = dibujar_laberinto(
         laberinto, tray, hasta_paso=paso_a_mostrar,
+        direcciones=direcciones,
         titulo=f"Paso {paso_a_mostrar}/{len(tray) - 1}  (gen={gen_actual})",
     )
     placeholder.pyplot(fig)
@@ -303,7 +396,7 @@ for inicio_fila in range(0, len(mejores_unicos), COLUMNAS_POR_FILA):
                 key=f"paso_actual_{indice}",
             )
             placeholder_figura = st.empty()
-            _render_panel(indice, individuo, tray, paso, placeholder_figura)
+            _render_panel(indice, individuo, tray, direcciones_por_individuo[indice], paso, placeholder_figura)
             pasos_actuales.append(paso)
             placeholders.append(placeholder_figura)
 
@@ -316,7 +409,7 @@ if reproducir_click:
     for paso_global in range(inicio, largo_max):
         for indice, (individuo, tray, placeholder) in enumerate(zip(mejores_unicos, trayectorias, placeholders)):
             paso_local = min(paso_global, len(tray) - 1)
-            _render_panel(indice, individuo, tray, paso_local, placeholder)
+            _render_panel(indice, individuo, tray, direcciones_por_individuo[indice], paso_local, placeholder)
         time.sleep(velocidad_reproduccion)
 
     for indice, tray in enumerate(trayectorias):
